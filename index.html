@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <link rel="icon" type="image/png" href="wavinho.png">
   
@@ -18,13 +18,12 @@
       height: 100%;
       overflow: hidden;
       background-color: #0b1a2c;
-      position: fixed; /* Evita rolagem elástica no celular */
     }
     canvas {
       display: block;
       width: 100vw;
       height: 100vh;
-      touch-action: none; /* Desativa gestos padrão do navegador como zoom e rolagem */
+      touch-action: manipulation;
       user-select: none;
       -webkit-user-select: none;
       image-rendering: pixelated;
@@ -336,13 +335,10 @@
     angle: 0
   };
 
-  // Resolução lógica fixa para manter a mesma proporção em celulares e PCs
-  const LOGICAL_WIDTH = 1280;
-  const LOGICAL_HEIGHT = 720;
-
   function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    wavinho.x = canvas.width / 2 - wavinho.width / 2;
   }
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
@@ -436,8 +432,8 @@
   }
 
   function launchFirework() {
-    const x = LOGICAL_WIDTH * 0.2 + Math.random() * (LOGICAL_WIDTH * 0.6);
-    const y = LOGICAL_HEIGHT * 0.15 + Math.random() * (LOGICAL_HEIGHT * 0.35);
+    const x = canvas.width * 0.2 + Math.random() * (canvas.width * 0.6);
+    const y = canvas.height * 0.15 + Math.random() * (canvas.height * 0.35);
     const colors = ['#FFD700', '#FF4500', '#00FFFF', '#FF69B4', '#ADFF2F', '#FFFFFF'];
     const color = colors[Math.floor(Math.random() * colors.length)];
 
@@ -529,6 +525,7 @@
   let highScore = 0;         
   let gameOver = false;
 
+  // Velocidade aumenta infinitamente e sem limites
   const baseSpeed = 6;
   let currentSpeed = baseSpeed;
 
@@ -539,7 +536,7 @@
   let sushiSpawnTimer = 0;
 
   function getWaveHeightAt(x) {
-    const waveBaseY = LOGICAL_HEIGHT - 180;
+    const waveBaseY = canvas.height - 180;
     return waveBaseY + Math.sin(x * 0.008 + waveOffset) * 18 + Math.cos(x * 0.015 + waveOffset * 0.5) * 8;
   }
 
@@ -571,7 +568,6 @@
     scorePopups.length = 0;
     obstacleTimer = 0;
     sushiSpawnTimer = 0;
-    wavinho.x = 250;
     wavinho.y = 200;
     wavinho.vy = 0;
     wavinho.grounded = false;
@@ -584,8 +580,8 @@
     }
   }
 
-  function checkMuteClick(logicX, logicY) {
-    if (logicX >= LOGICAL_WIDTH - 60 && logicX <= LOGICAL_WIDTH - 20 && logicY >= 20 && logicY <= 60) {
+  function checkMuteClick(x, y) {
+    if (x >= canvas.width - 60 && x <= canvas.width - 20 && y >= 20 && y <= 60) {
       isMuted = !isMuted;
       if (!isMuted && gameState === STATE_PLAYING && !gameOver && audioCtx) {
         startBGMusic();
@@ -598,28 +594,16 @@
   function handleAction(e) {
     initAudio();
 
-    let clientX = 0, clientY = 0;
+    let clickX = 0, clickY = 0;
     if (e.type === 'touchstart' && e.touches.length > 0) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-      e.preventDefault(); // Previne comportamento duplo de toque/clique em mobile
+      clickX = e.touches[0].clientX;
+      clickY = e.touches[0].clientY;
     } else if (e.type === 'click') {
-      clientX = e.clientX;
-      clientY = e.clientY;
+      clickX = e.clientX;
+      clickY = e.clientY;
     }
 
-    // Converte coordenadas da tela para o espaço lógico (mantendo proporção perfeita em qualquer celular)
-    const scaleX = canvas.width / LOGICAL_WIDTH;
-    const scaleY = canvas.height / LOGICAL_HEIGHT;
-    const scale = Math.min(scaleX, scaleY);
-
-    const offsetX = (canvas.width - LOGICAL_WIDTH * scale) / 2;
-    const offsetY = (canvas.height - LOGICAL_HEIGHT * scale) / 2;
-
-    const logicX = (clientX - offsetX) / scale;
-    const logicY = (clientY - offsetY) / scale;
-
-    if (checkMuteClick(logicX, logicY)) return;
+    if (checkMuteClick(clickX, clickY)) return;
 
     if (gameState === STATE_LOGOS) {
       logoStage = 3;
@@ -627,9 +611,9 @@
     } else if (gameState === STATE_MENU) {
       const btnW = 280;
       const btnH = 80;
-      const btnX = LOGICAL_WIDTH / 2 - btnW / 2;
-      const btnY = LOGICAL_HEIGHT / 2 + 60;
-      if (logicX >= btnX && logicX <= btnX + btnW && logicY >= btnY && logicY <= btnY + btnH) {
+      const btnX = canvas.width / 2 - btnW / 2;
+      const btnY = canvas.height / 2 + 60;
+      if (clickX >= btnX && clickX <= btnX + btnW && clickY >= btnY && clickY <= btnY + btnH) {
         startGamePlay();
       }
     } else if (gameState === STATE_PLAYING) {
@@ -666,7 +650,7 @@
       }
     }
   });
-  window.addEventListener('touchstart', handleAction, { passive: false });
+  window.addEventListener('touchstart', handleAction);
   canvas.addEventListener('click', handleAction);
 
   function checkCollisionCorrected(r1, r2) {
@@ -772,18 +756,6 @@
   function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.save();
-    // Sistema de escala responsiva Letterbox para celulares e computadores
-    const scaleX = canvas.width / LOGICAL_WIDTH;
-    const scaleY = canvas.height / LOGICAL_HEIGHT;
-    const scale = Math.min(scaleX, scaleY);
-
-    const offsetX = (canvas.width - LOGICAL_WIDTH * scale) / 2;
-    const offsetY = (canvas.height - LOGICAL_HEIGHT * scale) / 2;
-
-    ctx.translate(offsetX, offsetY);
-    ctx.scale(scale, scale);
-
     if (gameState === STATE_LOGOS) {
       if (!suspensePlayed) {
         suspensePlayed = true;
@@ -791,7 +763,7 @@
       }
 
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       if (logoStage === 1) {
         logoAlpha += 0.02;
@@ -823,8 +795,8 @@
       const logoH = 160;
       const gap = 40;
       const totalWidth = (logoW * 3) + (gap * 2);
-      let startX = (LOGICAL_WIDTH - totalWidth) / 2;
-      let startY = LOGICAL_HEIGHT / 2 - (logoH / 2) - 40;
+      let startX = (canvas.width - totalWidth) / 2;
+      let startY = canvas.height / 2 - (logoH / 2) - 40;
 
       if (imgWaveSushi.complete && imgWaveSushi.naturalWidth !== 0) {
         ctx.drawImage(imgWaveSushi, startX, startY, logoW, logoH);
@@ -845,16 +817,16 @@
       ctx.textAlign = 'center';
       ctx.shadowColor = 'rgba(0,0,0,0.1)';
       ctx.shadowBlur = 4;
-      ctx.fillText('APRESENTA:', LOGICAL_WIDTH / 2, startY + logoH + 60);
+      ctx.fillText('APRESENTA:', canvas.width / 2, startY + logoH + 60);
 
       ctx.restore();
 
     } else if (gameState === STATE_MENU) {
       if (imgMenuBg.complete && imgMenuBg.naturalWidth !== 0) {
-        ctx.drawImage(imgMenuBg, 0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+        ctx.drawImage(imgMenuBg, 0, 0, canvas.width, canvas.height);
       } else {
         ctx.fillStyle = '#0a0502';
-        ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
 
       if (menuAlpha < 1) {
@@ -865,8 +837,8 @@
       ctx.save();
       ctx.globalAlpha = menuAlpha;
 
-      const centerX = LOGICAL_WIDTH / 2;
-      const centerY = LOGICAL_HEIGHT / 2;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
 
       const btnW = 280;
       const btnH = 280;
@@ -894,18 +866,19 @@
 
         checkMilestone();
 
+        // A velocidade agora sobe continuamente sem teto máximo
         currentSpeed = baseSpeed + (score / 2200);
         waveSpeed = 0.08 + (currentSpeed - baseSpeed) * 0.008;
 
         bgX -= currentSpeed * bgSpeedRatio;
-        if (bgX <= -LOGICAL_WIDTH) bgX = 0;
+        if (bgX <= -canvas.width) bgX = 0;
 
         if (imgCozinha.complete && imgCozinha.naturalWidth !== 0) {
-          ctx.drawImage(imgCozinha, bgX, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
-          ctx.drawImage(imgCozinha, bgX + LOGICAL_WIDTH, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+          ctx.drawImage(imgCozinha, bgX, 0, canvas.width, canvas.height);
+          ctx.drawImage(imgCozinha, bgX + canvas.width, 0, canvas.width, canvas.height);
         } else {
           ctx.fillStyle = '#120a06';
-          ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
         waveOffset += waveSpeed;
@@ -936,7 +909,7 @@
 
         sushiSpawnTimer++;
         if (sushiSpawnTimer > 70 + Math.random() * 50) {
-          const startX = LOGICAL_WIDTH + 50;
+          const startX = canvas.width + 50;
           const baseArcY = getWaveHeightAt(startX) - 70 - Math.random() * 50;
           
           waveSushis.push({
@@ -1026,8 +999,8 @@
           if (type === 'boia') {
             obstacles.push({
               type: 'boia',
-              x: LOGICAL_WIDTH + 50,
-              y: getWaveHeightAt(LOGICAL_WIDTH + 50) - 50 + 5,
+              x: canvas.width + 50,
+              y: getWaveHeightAt(canvas.width + 50) - 50 + 5,
               width: 160,
               height: 70,
               angle: 0,
@@ -1036,8 +1009,8 @@
           } else {
             obstacles.push({
               type: 'gaivota',
-              x: LOGICAL_WIDTH + 50,
-              y: getWaveHeightAt(LOGICAL_WIDTH + 50) - 120 - Math.random() * 40,
+              x: canvas.width + 50,
+              y: getWaveHeightAt(canvas.width + 50) - 120 - Math.random() * 40,
               width: 170,
               height: 60,
               angle: 0,
@@ -1160,7 +1133,7 @@
             }
           }
 
-          if (shurikenHit || sh.x > LOGICAL_WIDTH + 100 || sh.x < -100 || sh.y > LOGICAL_HEIGHT + 100 || sh.y < -100) {
+          if (shurikenHit || sh.x > canvas.width + 100 || sh.x < -100 || sh.y > canvas.height + 100 || sh.y < -100) {
             shurikens.splice(i, 1);
           }
         }
@@ -1266,17 +1239,17 @@
 
         ctx.fillStyle = '#0a0502'; 
         ctx.beginPath();
-        ctx.moveTo(0, LOGICAL_HEIGHT);
-        for (let x = 0; x <= LOGICAL_WIDTH + 10; x += 10) {
+        ctx.moveTo(0, canvas.height);
+        for (let x = 0; x <= canvas.width + 10; x += 10) {
           ctx.lineTo(x, getWaveHeightAt(x));
         }
-        ctx.lineTo(LOGICAL_WIDTH, LOGICAL_HEIGHT);
+        ctx.lineTo(canvas.width, canvas.height);
         ctx.fill();
 
         ctx.strokeStyle = '#4fc3f7';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        for (let x = 0; x <= LOGICAL_WIDTH + 10; x += 10) {
+        for (let x = 0; x <= canvas.width + 10; x += 10) {
           ctx.lineTo(x, getWaveHeightAt(x));
         }
         ctx.stroke();
@@ -1501,13 +1474,13 @@
           ctx.save();
           ctx.textAlign = 'center';
           
-          const scaleText = 1 + Math.sin(milestoneTimer * 0.1) * 0.08;
-          ctx.font = `bold ${Math.floor(36 * scaleText)}px sans-serif`;
+          const scale = 1 + Math.sin(milestoneTimer * 0.1) * 0.08;
+          ctx.font = `bold ${Math.floor(36 * scale)}px sans-serif`;
           
           ctx.fillStyle = '#FFD700';
           ctx.shadowColor = 'rgba(255, 69, 0, 0.9)';
           ctx.shadowBlur = 16;
-          ctx.fillText(milestoneMessage, LOGICAL_WIDTH / 2, LOGICAL_HEIGHT * 0.35);
+          ctx.fillText(milestoneMessage, canvas.width / 2, canvas.height * 0.35);
           ctx.restore();
         }
 
@@ -1517,40 +1490,38 @@
         ctx.fillStyle = '#FFFFFF';
         ctx.font = 'bold 28px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`PONTOS: ${Math.floor(score)}`, LOGICAL_WIDTH / 2, LOGICAL_HEIGHT - 45);
+        ctx.fillText(`PONTOS: ${Math.floor(score)}`, canvas.width / 2, canvas.height - 45);
         ctx.restore();
       }
 
       ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.fillRect(LOGICAL_WIDTH - 60, 20, 40, 40);
+      ctx.fillRect(canvas.width - 60, 20, 40, 40);
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '20px sans-serif';
-      ctx.fillText(isMuted ? '🔇' : '🔊', LOGICAL_WIDTH - 52, 48);
+      ctx.fillText(isMuted ? '🔇' : '🔊', canvas.width - 52, 48);
 
       if (gameOver) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-        ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.font = 'bold 42px sans-serif';
-        ctx.fillText('GAME OVER', LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 - 50);
+        ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 50);
 
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold 26px sans-serif';
-        ctx.fillText(`Pontuação Final: ${Math.floor(score)} pts`, LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
+        ctx.fillText(`Pontuação Final: ${Math.floor(score)} pts`, canvas.width / 2, canvas.height / 2);
 
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '20px sans-serif';
-        ctx.fillText(`Distância Total: ${Math.floor(distance)} metros`, LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 35);
+        ctx.fillText(`Distância Total: ${Math.floor(distance)} metros`, canvas.width / 2, canvas.height / 2 + 35);
 
         ctx.font = '16px sans-serif';
-        ctx.fillText('TOQUE ou ESPAÇO para jogar novamente', LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 85);
+        ctx.fillText('Pressione ESPAÇO ou TOQUE para jogar novamente', canvas.width / 2, canvas.height / 2 + 85);
         ctx.textAlign = 'left';
       }
     }
-
-    ctx.restore(); // Restaura a escala lógica do canvas
 
     requestAnimationFrame(gameLoop);
   }
