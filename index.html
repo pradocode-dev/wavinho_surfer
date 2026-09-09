@@ -602,7 +602,7 @@
     if (e.type === 'touchstart' && e.touches.length > 0) {
       clickX = e.touches[0].clientX;
       clickY = e.touches[0].clientY;
-    } else if (e.type === 'click') {
+    } else if (e.type === 'click' || e.type === 'mousedown') {
       clickX = e.clientX;
       clickY = e.clientY;
     }
@@ -614,7 +614,7 @@
       logoAlpha = 0.01;
     } else if (gameState === STATE_MENU) {
       const btnW = 280;
-      const btnH = 80;
+      const btnH = 280;
       const btnX = canvas.width / 2 - btnW / 2;
       const btnY = canvas.height / 2 + 60;
       if (clickX >= btnX && clickX <= btnX + btnW && clickY >= btnY && clickY <= btnY + btnH) {
@@ -1521,7 +1521,7 @@
         ctx.fillText(`Distância Total: ${Math.floor(distance)} metros`, canvas.width / 2, canvas.height / 2 + 35);
 
         ctx.font = '16px sans-serif';
-        ctx.fillText('Pressione ESPAÇO ou TOQUE para jogar novamente', canvas.width / 2, canvas.height / 2 + 85);
+        ctx.fillText('Pressione ESPAÇO ou CLIQUE para jogar novamente', canvas.width / 2, canvas.height / 2 + 85);
         ctx.textAlign = 'left';
       }
     }
